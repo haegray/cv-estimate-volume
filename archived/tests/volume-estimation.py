@@ -370,13 +370,30 @@ def get_depth(img1_rectified, img2_rectified):
 #read in set of 3 images, and return the points for that image.
 
 def align_points(X, i):
-    #T = np.asmatrix([[10.25235012], [2.74710893], [0]])
-    #R_x = np.asmatrix([[1,0,0],[0,-np.cos(63.6),np.sin(63.6)],[0,-np.sin(63.6),-np.cos(63.6)]])
-    R_t = X @ np.asmatrix([[-np.cos(15),np.sin(15),0],[-np.sin(15),-np.cos(15),0],[0,0,1]]).transpose()
-    for x in range(0, i):
-        #X = X - T
-        X = R_t @ X
-    return X
+    """
+    Apply rotation to align points from view i to the reference frame.
+    
+    Args:
+        X: Points to rotate
+        i: View index (0, 1, 2, ...)
+    
+    Returns:
+        Rotated points
+    """
+    # Rotation angle per view is 15 degrees around z-axis
+    # For view i, apply rotation of (i * 15) degrees
+    angle_degrees = i * 15
+    angle_radians = np.radians(angle_degrees)
+    
+    # Rotation matrix around z-axis: Rz(θ) = [[cos(θ), -sin(θ), 0], [sin(θ), cos(θ), 0], [0, 0, 1]]
+    cos_theta = np.cos(angle_radians)
+    sin_theta = np.sin(angle_radians)
+    R_z = np.asmatrix([[cos_theta, -sin_theta, 0],
+                       [sin_theta, cos_theta, 0],
+                       [0, 0, 1]])
+    
+    # Apply rotation: X_rotated = R * X
+    return X @ R_z.transpose()
 
 def set_points(three_images_arr, i, depth_map):
     if len(three_images_arr) != 3:
@@ -452,9 +469,15 @@ for i,point in enumerate(X[:,0]):
     X_new[i,1,2] = depth_map[X_new[i,1,1],X_new[i,1,0]]
     X_new[i,2,2] = depth_map[X_new[i,2,1],X_new[i,2,0]]
     
-    X_new[i,1,:] = rotation.apply(X_new[i,1,:])
-    X_new[i,2,:] = rotation.apply(X_new[i,2,:])
-    X_new[i,2,:] = rotation.apply(X_new[i,2,:])
+    # Apply rotation based on view index
+    # View 0: no rotation (identity)
+    # View 1: rotation by -15 degrees
+    # View 2: rotation by -30 degrees (2 * -15)
+    rotation_view1 = R.from_rotvec(rotation_radians * rotation_axis)
+    rotation_view2 = R.from_rotvec(2 * rotation_radians * rotation_axis)
+    
+    X_new[i,1,:] = rotation_view1.apply(X_new[i,1,:])
+    X_new[i,2,:] = rotation_view2.apply(X_new[i,2,:])
 
 X = X_new
 #X1, colors1 = set_points(three_images1, 2, depth_map)
